@@ -1,21 +1,43 @@
-"""
-Billions 트레이딩 MBTI 텔레그램 봇
-축: B/W (빠른/신중 진입) + H/S (홀드/손절) + T/C (내러티브/차트)
-"""
+"""Billions 트레이딩 MBTI 텔레그램 봇."""
+from __future__ import annotations
 
-import logging
+import io
 import os
+import urllib.parse
 from pathlib import Path
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+
+import httpx
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
-    Application, CommandHandler, CallbackQueryHandler,
-    ConversationHandler, ContextTypes
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ConversationHandler,
+    ContextTypes,
 )
 
-logging.basicConfig(level=logging.INFO)
+from .common import allowlist_required, get_logger, load_allowed_handles, require_env
 
-BOT_TOKEN = "8526363338:AAHNjfRSzRK7QYc81cJT8qEVnJJJSrqDefM"
-IMAGE_DIR = Path(os.environ.get("MBTI_IMAGE_DIR", "/home/ubuntu/mbti_images"))
+logger = get_logger(__name__)
+
+BOT_TOKEN = require_env("BOT_TOKEN_MBTI")
+
+_PACKAGE_DATA = Path(__file__).resolve().parent / "data"
+IMAGE_URL_BASE = os.environ.get("MBTI_IMAGE_URL_BASE", "").strip()
+IMAGE_DIR = Path(os.environ.get("MBTI_IMAGE_DIR", _PACKAGE_DATA / "mbti_images"))
+ALLOWED_HANDLES_FILE = Path(
+    os.environ.get("ALLOWED_HANDLES_FILE", _PACKAGE_DATA / "allowed_handles.txt")
+)
+ALLOWED_HANDLES = load_allowed_handles(ALLOWED_HANDLES_FILE)
+SHARE_IMAGE_URL_BASE = os.environ.get("MBTI_SHARE_IMAGE_URL_BASE", "").strip() or IMAGE_URL_BASE
+
+# X(트위터) 공유 — 텍스트·이미지 URL 추후 결정 (placeholder)
+# 사용 변수: {code} (예: BHT), {name} (예: 🔥 $BILL or Nothing), {desc}
+SHARE_TEXT_TEMPLATE = (
+    "내 트레이딩 MBTI는 {code}!\n"
+    "{name}\n\n"
+    "#BillionsKorea #트레이딩MBTI #{code}"
+)
 
 # ─── 13문제 ───────────────────────────────────────────────────
 # score 값: f/c/h/l/n/d 조합 (+ 구분)
@@ -154,6 +176,17 @@ RESULTS = {
 ANSWERING = 0
 
 
+def make_share_keyboard(code: str, name: str, desc: str) -> InlineKeyboardMarkup:
+    text = SHARE_TEXT_TEMPLATE.format(code=code, name=name, desc=desc)
+    params: dict[str, str] = {"text": text}
+    if SHARE_IMAGE_URL_BASE:
+        params["url"] = f"{SHARE_IMAGE_URL_BASE.rstrip('/')}/{code}.png"
+    intent_url = "https://x.com/intent/post?" + urllib.parse.urlencode(
+        params, quote_via=urllib.parse.quote
+    )
+    return InlineKeyboardMarkup([[InlineKeyboardButton("𝕏 X에 공유하기", url=intent_url)]])
+
+
 def make_keyboard(q_idx: int) -> InlineKeyboardMarkup:
     q = QUESTIONS[q_idx]
     buttons = [
@@ -170,6 +203,27 @@ def calc_result(scores: dict) -> str:
     return b_w + h_s + t_c
 
 
+async def fetch_result_image(code: str) -> bytes | None:
+    if IMAGE_URL_BASE:
+        url = f"{IMAGE_URL_BASE.rstrip('/')}/{code}.png"
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(url)
+            if resp.status_code == 200:
+                return resp.content
+        except Exception as exc:
+            logger.warning("이미지 URL fetch 실패 code=%s: %s", code, exc)
+        return None
+    local_path = IMAGE_DIR / f"{code}.png"
+    if local_path.exists():
+        try:
+            return local_path.read_bytes()
+        except Exception as exc:
+            logger.warning("이미지 로컬 읽기 실패 code=%s: %s", code, exc)
+    return None
+
+
+@allowlist_required(ALLOWED_HANDLES)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["q_idx"] = 0
     context.user_data["scores"] = {"f": 0, "c": 0, "h": 0, "l": 0, "n": 0, "d": 0}
@@ -220,13 +274,15 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📸 결과 캡처 후 X(트위터)에 #BillionsKorea #트레이딩MBTI 태그와 함께 올리고 아래 폼에 제출하면 $BILL 에어드랍 추첨에 참여할 수 있어요!\n"
             f"👉 https://forms.gle/8yPz49NwnDtNAtxz5"
         )
-        image_path = IMAGE_DIR / f"{code}.png"
+        image_bytes = await fetch_result_image(code)
+        share_kb = make_share_keyboard(code, name, desc)
         await query.edit_message_text("결과를 불러오는 중...")
-        if image_path.exists():
-            with open(image_path, "rb") as img:
-                await query.message.reply_photo(photo=img, caption=caption)
+        if image_bytes is not None:
+            bio = io.BytesIO(image_bytes)
+            bio.name = f"{code}.png"
+            await query.message.reply_photo(photo=bio, caption=caption, reply_markup=share_kb)
         else:
-            await query.message.reply_text(caption)
+            await query.message.reply_text(caption, reply_markup=share_kb)
         return ConversationHandler.END
     else:
         progress = f"({next_idx}/13)"
@@ -239,7 +295,8 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ANSWERING
 
 
-def main():
+def main() -> None:
+    logger.info("MBTI 봇 시작 (allowlist=%d 핸들)", len(ALLOWED_HANDLES))
     app = Application.builder().token(BOT_TOKEN).build()
 
     conv = ConversationHandler(
@@ -250,7 +307,6 @@ def main():
     )
 
     app.add_handler(conv)
-    print("봇 시작됨")
     app.run_polling(drop_pending_updates=True)
 
 

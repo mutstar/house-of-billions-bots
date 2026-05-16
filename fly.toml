@@ -1,0 +1,22 @@
+app = "house-of-billions-bots"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  ATTEMPT_FILE_PATH = "/data/attempt_counts.json"
+
+[processes]
+  deepfake = "python -m src.deepfake_bot"
+  mbti = "python -m src.mbti_bot"
+
+[[mounts]]
+  source = "data"
+  destination = "/data"
+  processes = ["deepfake"]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+  processes = ["deepfake", "mbti"]

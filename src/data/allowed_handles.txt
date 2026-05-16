@@ -1,0 +1,5 @@
+# Telegram @handles permitted to use the bots (one per line, without @).
+# Lines starting with # are comments. Empty lines ignored. Case-insensitive.
+# Example:
+# alice_dev
+# bob_trader
