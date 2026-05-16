@@ -16,7 +16,7 @@ logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = "8735556443:AAFgUHh-_VNEicrFqYHQcQ9R-Q8gdEe3Qag"
-ATTEMPT_FILE = Path("/home/mbti_bot/attempt_counts.json")
+ATTEMPT_FILE = Path("/home/user/attempt_counts.json")
 
 with open("/home/user/quiz_data.json", "r", encoding="utf-8") as f:
     QUESTIONS = json.load(f)["questions"]
