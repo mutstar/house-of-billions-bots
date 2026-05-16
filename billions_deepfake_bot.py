@@ -23,7 +23,7 @@ with open("/home/user/quiz_data.json", "r", encoding="utf-8") as f:
 
 DIFFICULTY_LABELS = {"easy": "⬜ 쉬움", "medium": "🟨 보통", "hard": "🟥 어려움"}
 
-ASK_NAME, QUIZ = range(2)
+ASK_NAME, QUIZ, CONFIRM_CANCEL = range(3)
 
 
 def load_attempts() -> dict:
@@ -37,19 +37,12 @@ def save_attempt(user_id: int) -> int:
     data = load_attempts()
     uid = str(user_id)
     data[uid] = data.get(uid, 0) + 1
-    ATTEMPT_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(ATTEMPT_FILE, "w") as f:
         json.dump(data, f)
     return data[uid]
 
 
-def get_attempt_count(user_id: int) -> int:
-    data = load_attempts()
-    return data.get(str(user_id), 0)
-
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    # mid-quiz /start → 경고만 표시, 재시작 안 함
     if context.user_data.get("current_q", 0) > 0:
         await update.message.reply_text(
             "⚠️ 퀴즈가 진행 중입니다!\n\n"
@@ -83,7 +76,6 @@ async def receive_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     context.user_data["score"] = 0
     context.user_data["correct"] = 0
     context.user_data["start_time"] = time.time()
-    context.user_data["answered"] = False
 
     easy   = [q for q in QUESTIONS if q["difficulty"] == "easy"]
     medium = [q for q in QUESTIONS if q["difficulty"] == "medium"]
@@ -146,7 +138,7 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     query = update.callback_query
     await query.answer()
 
-    data = query.data  # ans_{idx}_{answer}
+    data = query.data
     parts = data.split("_")
     q_idx = int(parts[1])
     user_answer = parts[2]
@@ -196,7 +188,6 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE, last_r
 
     attempt_num = save_attempt(user_id)
     attempt_text = f"📌 {attempt_num}번째 시도" if attempt_num > 1 else "📌 첫 번째 시도"
-
     rank_text = "🥇 완벽!" if score == 100 else ("🥈 대단해요!" if score >= 80 else ("🥉 잘했어요!" if score >= 60 else "💪 다음엔 더 잘할 수 있어요!"))
 
     await update.effective_message.reply_text(
@@ -212,14 +203,49 @@ async def finish_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE, last_r
         f"스태프가 점수를 리더보드에 등록해 드립니다 🏆",
         parse_mode="Markdown"
     )
-    # 유저 데이터 초기화 (재시작 허용)
     context.user_data.clear()
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # 퀴즈 진행 중일 때만 경고
+    if context.user_data.get("current_q", 0) > 0:
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("✅ 네, 포기할게요", callback_data="cancel_confirm"),
+                InlineKeyboardButton("❌ 계속할게요", callback_data="cancel_deny"),
+            ]
+        ])
+        await update.message.reply_text(
+            "⚠️ *퀴즈를 포기하시겠어요?*\n\n"
+            "취소하면 *시도 횟수가 1회 차감*됩니다.\n"
+            "스태프는 2번째 시도부터 결과를 인정하지 않아요.",
+            parse_mode="Markdown",
+            reply_markup=keyboard
+        )
+        return CONFIRM_CANCEL
+
+    # 퀴즈 시작 전 cancel → 그냥 종료
     context.user_data.clear()
-    await update.message.reply_text("퀴즈가 취소되었습니다. /start 로 다시 시작할 수 있습니다.")
+    await update.message.reply_text("취소되었습니다. /start 로 다시 시작할 수 있습니다.")
     return ConversationHandler.END
+
+
+async def handle_cancel_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "cancel_confirm":
+        user_id = update.effective_user.id
+        attempt_num = save_attempt(user_id)
+        context.user_data.clear()
+        await query.edit_message_text(
+            f"퀴즈가 취소되었습니다. (📌 {attempt_num}번째 시도 기록)\n\n"
+            "/start 로 다시 시작할 수 있습니다."
+        )
+        return ConversationHandler.END
+    else:
+        await query.edit_message_text("계속 진행합니다! 퀴즈로 돌아가세요 👇")
+        return QUIZ
 
 
 def main():
@@ -230,6 +256,7 @@ def main():
         states={
             ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_name)],
             QUIZ: [CallbackQueryHandler(handle_answer, pattern=r"^ans_\d+_(ai|real)$")],
+            CONFIRM_CANCEL: [CallbackQueryHandler(handle_cancel_confirm, pattern=r"^cancel_(confirm|deny)$")],
         },
         fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
         allow_reentry=True,
