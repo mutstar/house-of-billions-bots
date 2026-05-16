@@ -1,0 +1,182 @@
+{
+  "_comment": "answer: 'real' = 실제 사진, 'ai' = AI 생성/수정 이미지",
+  "_scoring": "easy=2pt×10문제, medium=4pt×10문제, hard=8pt×5문제 = 만점 100pt",
+  "_distribution": "12 real + 13 ai = 25문제",
+  "questions": [
+    {
+      "id": 1,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_1.jpg",
+      "answer": "real",
+      "difficulty": "easy",
+      "points": 2
+    },
+    {
+      "id": 2,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_1.jpg",
+      "answer": "ai",
+      "difficulty": "easy",
+      "points": 2
+    },
+    {
+      "id": 3,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_2.jpg",
+      "answer": "real",
+      "difficulty": "easy",
+      "points": 2
+    },
+    {
+      "id": 4,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_2.jpg",
+      "answer": "ai",
+      "difficulty": "easy",
+      "points": 2
+    },
+    {
+      "id": 5,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_3.jpg",
+      "answer": "real",
+      "difficulty": "easy",
+      "points": 2
+    },
+    {
+      "id": 6,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_3.jpg",
+      "answer": "ai",
+      "difficulty": "easy",
+      "points": 2
+    },
+    {
+      "id": 7,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_4.jpg",
+      "answer": "real",
+      "difficulty": "easy",
+      "points": 2
+    },
+    {
+      "id": 8,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_4.jpg",
+      "answer": "ai",
+      "difficulty": "easy",
+      "points": 2
+    },
+    {
+      "id": 9,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_5.jpg",
+      "answer": "real",
+      "difficulty": "easy",
+      "points": 2
+    },
+    {
+      "id": 10,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_5.jpg",
+      "answer": "ai",
+      "difficulty": "easy",
+      "points": 2
+    },
+    {
+      "id": 11,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_6.jpg",
+      "answer": "real",
+      "difficulty": "medium",
+      "points": 4
+    },
+    {
+      "id": 12,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_6.jpg",
+      "answer": "ai",
+      "difficulty": "medium",
+      "points": 4
+    },
+    {
+      "id": 13,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_7.jpg",
+      "answer": "real",
+      "difficulty": "medium",
+      "points": 4
+    },
+    {
+      "id": 14,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_7.jpg",
+      "answer": "ai",
+      "difficulty": "medium",
+      "points": 4
+    },
+    {
+      "id": 15,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_8.jpg",
+      "answer": "real",
+      "difficulty": "medium",
+      "points": 4
+    },
+    {
+      "id": 16,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_8.jpg",
+      "answer": "ai",
+      "difficulty": "medium",
+      "points": 4
+    },
+    {
+      "id": 17,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_9.jpg",
+      "answer": "real",
+      "difficulty": "medium",
+      "points": 4
+    },
+    {
+      "id": 18,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_9.jpg",
+      "answer": "ai",
+      "difficulty": "medium",
+      "points": 4
+    },
+    {
+      "id": 19,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_10.jpg",
+      "answer": "real",
+      "difficulty": "medium",
+      "points": 4
+    },
+    {
+      "id": 20,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_10.jpg",
+      "answer": "ai",
+      "difficulty": "medium",
+      "points": 4
+    },
+    {
+      "id": 21,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_11.jpg",
+      "answer": "ai",
+      "difficulty": "hard",
+      "points": 8
+    },
+    {
+      "id": 22,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_11.jpg",
+      "answer": "real",
+      "difficulty": "hard",
+      "points": 8
+    },
+    {
+      "id": 23,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_12.jpg",
+      "answer": "ai",
+      "difficulty": "hard",
+      "points": 8
+    },
+    {
+      "id": 24,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_12.jpg",
+      "answer": "real",
+      "difficulty": "hard",
+      "points": 8
+    },
+    {
+      "id": 25,
+      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_13.jpg",
+      "answer": "ai",
+      "difficulty": "hard",
+      "points": 8
+    }
+  ]
+}
