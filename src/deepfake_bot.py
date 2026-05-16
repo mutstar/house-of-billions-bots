@@ -45,7 +45,7 @@ ALLOWED_HANDLES = load_allowed_handles(ALLOWED_HANDLES_FILE)
 
 DIFFICULTY_LABELS = {"easy": "⬜ 쉬움", "medium": "🟨 보통", "hard": "🟥 어려움"}
 
-ASK_NAME, QUIZ = range(2)
+ASK_NAME, QUIZ, CONFIRM_CANCEL = range(3)
 
 
 def load_attempts() -> dict:
@@ -245,9 +245,46 @@ async def finish_quiz(
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # 퀴즈 진행 중에만 포기 확인 — 시도 횟수 차감 정책 안내
+    if context.user_data.get("current_q", 0) > 0:
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton("✅ 네, 포기할게요", callback_data="cancel_confirm"),
+                    InlineKeyboardButton("❌ 계속할게요", callback_data="cancel_deny"),
+                ]
+            ]
+        )
+        await update.message.reply_text(
+            "⚠️ *퀴즈를 포기하시겠어요?*\n\n"
+            "취소하면 *시도 횟수가 1회 차감*됩니다.\n"
+            "스태프는 2번째 시도부터 결과를 인정하지 않아요.",
+            parse_mode="Markdown",
+            reply_markup=keyboard,
+        )
+        return CONFIRM_CANCEL
+
     context.user_data.clear()
-    await update.message.reply_text("퀴즈가 취소되었습니다. /start 로 다시 시작할 수 있습니다.")
+    await update.message.reply_text("취소되었습니다. /start 로 다시 시작할 수 있습니다.")
     return ConversationHandler.END
+
+
+async def handle_cancel_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "cancel_confirm":
+        user_id = update.effective_user.id
+        attempt_num = save_attempt(user_id)
+        context.user_data.clear()
+        await query.edit_message_text(
+            f"퀴즈가 취소되었습니다. (📌 {attempt_num}번째 시도 기록)\n\n"
+            "/start 로 다시 시작할 수 있습니다."
+        )
+        return ConversationHandler.END
+
+    await query.edit_message_text("계속 진행합니다! 퀴즈로 돌아가세요 👇")
+    return QUIZ
 
 
 def main() -> None:
@@ -258,6 +295,9 @@ def main() -> None:
         states={
             ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_name)],
             QUIZ: [CallbackQueryHandler(handle_answer, pattern=r"^ans_\d+_(ai|real)$")],
+            CONFIRM_CANCEL: [
+                CallbackQueryHandler(handle_cancel_confirm, pattern=r"^cancel_(confirm|deny)$")
+            ],
         },
         fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
         allow_reentry=True,
