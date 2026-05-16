@@ -50,7 +50,7 @@ def get_attempt_count(user_id: int) -> int:
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     # mid-quiz /start → 경고만 표시, 재시작 안 함
-    if context.user_data.get("q_idx", 0) > 0:
+    if context.user_data.get("current_q", 0) > 0:
         await update.message.reply_text(
             "⚠️ 퀴즈가 진행 중입니다!\n\n"
             "퀴즈를 포기하려면 /cancel 을 입력하세요.\n"
