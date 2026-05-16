@@ -1,6 +1,7 @@
 """House of Billions — 딥페이크 탐지 퀴즈 봇."""
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 import os
@@ -24,6 +25,7 @@ from .common import (
     allowlist_required,
     get_logger,
     load_allowed_handles,
+    push_score_to_event_score,
     require_env,
 )
 
@@ -209,8 +211,11 @@ async def finish_quiz(
     elapsed = int(time.time() - context.user_data["start_time"])
     score = context.user_data["score"]
     correct = context.user_data["correct"]
+    total = len(context.user_data["questions"])
     name = context.user_data["name"]
-    user_id = update.effective_user.id
+    user = update.effective_user
+    user_id = user.id
+    username = (user.username or "").strip() if user else ""
 
     minutes, seconds = divmod(elapsed, 60)
 
@@ -228,6 +233,12 @@ async def finish_quiz(
     else:
         rank_text = "💪 다음엔 더 잘할 수 있어요!"
 
+    register_text = (
+        "📋 결과 등록은 잠시 후 자동 반영됩니다.\n"
+        "반영되지 않으면 스태프에게 이 화면을 보여주세요 🏆"
+    )
+
+    # 결과 메시지 먼저 전송 — push가 chat critical path를 차단하지 않도록
     await update.effective_message.reply_text(
         f"{last_result}\n\n"
         f"🎉 *퀴즈 완료!*\n\n"
@@ -237,11 +248,62 @@ async def finish_quiz(
         f"⏱ 소요 시간: {minutes}분 {seconds}초\n"
         f"{attempt_text}\n\n"
         f"{rank_text}\n\n"
-        f"📋 이 화면을 스태프에게 보여주세요!\n"
-        f"스태프가 점수를 리더보드에 등록해 드립니다 🏆",
+        f"{register_text}",
         parse_mode="Markdown",
     )
+
+    # 백그라운드 push — 결과 도착 시 follow-up 메시지로 알림
+    chat_id = update.effective_chat.id
+    asyncio.create_task(
+        _push_and_notify(
+            bot=context.bot,
+            chat_id=chat_id,
+            telegram_user_id=user_id,
+            telegram_handle=username or None,
+            player_name=name,
+            score=score,
+            correct_count=correct,
+            total_count=total,
+            elapsed_sec=elapsed,
+            attempt_num=attempt_num,
+        )
+    )
     context.user_data.clear()
+
+
+async def _push_and_notify(
+    *,
+    bot,
+    chat_id: int,
+    telegram_user_id: int,
+    telegram_handle: str | None,
+    player_name: str,
+    score: int,
+    correct_count: int,
+    total_count: int,
+    elapsed_sec: int,
+    attempt_num: int,
+) -> None:
+    """비동기 push — 결과 채팅 차단 X. 완료 시 follow-up 메시지 1건."""
+    try:
+        matched = await push_score_to_event_score(
+            telegram_user_id=telegram_user_id,
+            telegram_handle=telegram_handle,
+            player_name=player_name,
+            score=score,
+            correct_count=correct_count,
+            total_count=total_count,
+            elapsed_sec=elapsed_sec,
+            attempt_num=attempt_num,
+        )
+        if matched:
+            await bot.send_message(
+                chat_id=chat_id,
+                text="✅ 점수가 리더보드에 자동 등록되었습니다 🏆",
+            )
+    except Exception as e:
+        # [경고] 백그라운드 task — 예외 전파 시 unhandled task 경고 발생. 명시 로그만
+        logger.warning("push_and_notify 예외: %s", e)
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

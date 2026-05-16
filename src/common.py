@@ -7,6 +7,8 @@ from functools import wraps
 from pathlib import Path
 from typing import Awaitable, Callable
 
+import httpx
+
 try:
     from dotenv import load_dotenv
 
@@ -109,3 +111,65 @@ def allowlist_required(
         return wrapper
 
     return decorator
+
+
+async def push_score_to_event_score(
+    *,
+    telegram_user_id: int,
+    telegram_handle: str | None,
+    player_name: str,
+    score: int,
+    correct_count: int,
+    total_count: int,
+    elapsed_sec: int,
+    attempt_num: int,
+) -> bool:
+    """event-score API 로 점수 POST. 실패 시 False 반환 (예외 전파 X).
+
+    env:
+      EVENT_SCORE_API_URL — 예: https://event-score.vercel.app
+      BOT_SHARED_SECRET — event-score 측과 동일한 시크릿
+    """
+    api_url = os.environ.get("EVENT_SCORE_API_URL", "").rstrip("/")
+    secret = os.environ.get("BOT_SHARED_SECRET", "").strip()
+    if not api_url or not secret:
+        logger.info("event-score push skipped (env 미설정)")
+        return False
+
+    endpoint = f"{api_url}/api/bot/scores"
+    payload = {
+        "gameId": 1,
+        "telegramUserId": str(telegram_user_id),
+        "telegramHandle": telegram_handle,
+        "playerName": player_name,
+        "score": int(score),
+        "correctCount": int(correct_count),
+        "totalCount": int(total_count),
+        "elapsedSec": int(elapsed_sec),
+        "attemptNum": int(attempt_num),
+    }
+    headers = {"X-Bot-Secret": secret, "Content-Type": "application/json"}
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(endpoint, json=payload, headers=headers)
+        if resp.status_code // 100 != 2:
+            logger.warning(
+                "event-score push 실패: status=%s body=%s",
+                resp.status_code,
+                resp.text[:200],
+            )
+            return False
+        data = resp.json()
+        matched = bool(data.get("matched"))
+        logger.info(
+            "event-score push OK: matched=%s score=%s total=%s",
+            matched,
+            data.get("score"),
+            data.get("total"),
+        )
+        return matched
+    except Exception as e:
+        # [경고] 네트워크/타임아웃/JSON 파싱 실패는 모두 fire-and-forget — 사용자 채팅 차단 금지
+        logger.warning("event-score push 예외: %s", e)
+        return False
