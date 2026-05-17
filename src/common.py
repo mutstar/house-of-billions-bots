@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from functools import wraps
 from pathlib import Path
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Union
 
 import httpx
 
@@ -31,6 +32,69 @@ def get_logger(name: str) -> logging.Logger:
 
 
 logger = get_logger(__name__)
+
+_ALLOWLIST_CACHE: dict = {
+    "set": frozenset(),
+    "fetched_at": 0.0,
+    "fail_count": 0,
+}
+_ALLOWLIST_TTL_SEC = 60.0
+
+
+def get_cached_allowlist() -> frozenset[str]:
+    """현재 캐시된 allowlist 반환 (synchronous, decorator 내 호출용)."""
+    return _ALLOWLIST_CACHE["set"]
+
+
+async def fetch_allowlist_from_api(
+    api_url: str,
+    secret: str,
+    *,
+    timeout: float = 5.0,
+) -> frozenset[str]:
+    """event-score /api/bot/allowlist 호출 → 핸들 set 반환, 캐시 갱신.
+    실패 시: 기존 캐시 유지 + fail_count 증가 + 로그. 예외 X.
+    """
+    if not api_url or not secret:
+        logger.warning("allowlist fetch skipped (env 미설정)")
+        return _ALLOWLIST_CACHE["set"]
+    endpoint = f"{api_url.rstrip('/')}/api/bot/allowlist"
+    headers = {"X-Bot-Secret": secret}
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.get(endpoint, headers=headers)
+        if resp.status_code // 100 != 2:
+            _ALLOWLIST_CACHE["fail_count"] += 1
+            logger.warning(
+                "allowlist fetch 실패: status=%s body=%s fail_count=%d (캐시 유지: %d 핸들)",
+                resp.status_code,
+                resp.text[:200],
+                _ALLOWLIST_CACHE["fail_count"],
+                len(_ALLOWLIST_CACHE["set"]),
+            )
+            return _ALLOWLIST_CACHE["set"]
+        data = resp.json()
+        raw = data.get("handles", [])
+        if not isinstance(raw, list):
+            logger.warning("allowlist response handles 비-list (캐시 유지)")
+            return _ALLOWLIST_CACHE["set"]
+        new_set = frozenset(
+            normalize_handle(h) for h in raw if isinstance(h, str) and h.strip()
+        )
+        _ALLOWLIST_CACHE["set"] = new_set
+        _ALLOWLIST_CACHE["fetched_at"] = time.time()
+        _ALLOWLIST_CACHE["fail_count"] = 0
+        logger.info("allowlist 갱신: %d 핸들 (count=%s)", len(new_set), data.get("count"))
+        return new_set
+    except Exception as e:
+        _ALLOWLIST_CACHE["fail_count"] += 1
+        logger.warning(
+            "allowlist fetch 예외: %s fail_count=%d (캐시 유지: %d 핸들)",
+            e,
+            _ALLOWLIST_CACHE["fail_count"],
+            len(_ALLOWLIST_CACHE["set"]),
+        )
+        return _ALLOWLIST_CACHE["set"]
 
 
 def require_env(name: str) -> str:
@@ -65,8 +129,11 @@ def load_allowed_handles(path: str | os.PathLike[str]) -> frozenset[str]:
     return frozenset(handles)
 
 
+AllowedSource = Union[frozenset[str], Callable[[], frozenset[str]]]
+
+
 def allowlist_required(
-    allowed: frozenset[str],
+    allowed: AllowedSource,
     block_message: str = (
         "⚠️ 이 봇은 사전 등록된 참여자만 사용할 수 있습니다.\n\n"
         "텔레그램 username(@핸들)이 등록된 명단에 있어야 합니다.\n"
@@ -101,7 +168,8 @@ def allowlist_required(
                 await _reply(no_handle_message)
                 return ConversationHandler.END
 
-            if normalize_handle(username) not in allowed:
+            current = allowed() if callable(allowed) else allowed
+            if normalize_handle(username) not in current:
                 logger.info("차단 (미등록 핸들) @%s user_id=%s", username, user.id if user else None)
                 await _reply(block_message)
                 return ConversationHandler.END

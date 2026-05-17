@@ -16,7 +16,14 @@ from telegram.ext import (
     ContextTypes,
 )
 
-from .common import allowlist_required, get_logger, load_allowed_handles, require_env
+from .common import (
+    allowlist_required,
+    fetch_allowlist_from_api,
+    get_cached_allowlist,
+    get_logger,
+    load_allowed_handles,
+    require_env,
+)
 
 logger = get_logger(__name__)
 
@@ -28,7 +35,14 @@ IMAGE_DIR = Path(os.environ.get("MBTI_IMAGE_DIR", _PACKAGE_DATA / "mbti_images")
 ALLOWED_HANDLES_FILE = Path(
     os.environ.get("ALLOWED_HANDLES_FILE", _PACKAGE_DATA / "allowed_handles.txt")
 )
-ALLOWED_HANDLES = load_allowed_handles(ALLOWED_HANDLES_FILE)
+EVENT_SCORE_API_URL = os.environ.get("EVENT_SCORE_API_URL", "").rstrip("/")
+BOT_SHARED_SECRET = os.environ.get("BOT_SHARED_SECRET", "").strip()
+BOT_ALLOWLIST_REFRESH_SEC = int(os.environ.get("BOT_ALLOWLIST_REFRESH_SEC", "60"))
+_fallback = load_allowed_handles(ALLOWED_HANDLES_FILE)
+if _fallback:
+    from .common import _ALLOWLIST_CACHE
+    _ALLOWLIST_CACHE["set"] = _fallback
+    logger.info("allowlist 파일 fallback 적용: %d 핸들 (API 첫 응답 전까지)", len(_fallback))
 SHARE_IMAGE_URL_BASE = os.environ.get("MBTI_SHARE_IMAGE_URL_BASE", "").strip() or IMAGE_URL_BASE
 
 # X(트위터) 공유 — 텍스트·이미지 URL 추후 결정 (placeholder)
@@ -223,7 +237,7 @@ async def fetch_result_image(code: str) -> bytes | None:
     return None
 
 
-@allowlist_required(ALLOWED_HANDLES)
+@allowlist_required(get_cached_allowlist)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["q_idx"] = 0
     context.user_data["scores"] = {"f": 0, "c": 0, "h": 0, "l": 0, "n": 0, "d": 0}
@@ -296,8 +310,21 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main() -> None:
-    logger.info("MBTI 봇 시작 (allowlist=%d 핸들)", len(ALLOWED_HANDLES))
     app = Application.builder().token(BOT_TOKEN).build()
+
+    async def _refresh_allowlist_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+        await fetch_allowlist_from_api(EVENT_SCORE_API_URL, BOT_SHARED_SECRET)
+
+    if EVENT_SCORE_API_URL and BOT_SHARED_SECRET:
+        app.job_queue.run_repeating(
+            _refresh_allowlist_job,
+            interval=BOT_ALLOWLIST_REFRESH_SEC,
+            first=1.0,
+            name="allowlist_refresh",
+        )
+        logger.info("allowlist 자동 새로고침 활성 (간격=%ds)", BOT_ALLOWLIST_REFRESH_SEC)
+    else:
+        logger.warning("allowlist API env 미설정 — 파일 fallback만 사용")
 
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
@@ -307,6 +334,7 @@ def main() -> None:
     )
 
     app.add_handler(conv)
+    logger.info("MBTI 봇 시작")
     app.run_polling(drop_pending_updates=True)
 
 

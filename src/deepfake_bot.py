@@ -23,6 +23,8 @@ from telegram.ext import (
 
 from .common import (
     allowlist_required,
+    fetch_allowlist_from_api,
+    get_cached_allowlist,
     get_logger,
     load_allowed_handles,
     push_score_to_event_score,
@@ -43,7 +45,14 @@ ALLOWED_HANDLES_FILE = Path(
 with QUIZ_DATA_FILE.open("r", encoding="utf-8") as f:
     QUESTIONS = json.load(f)["questions"]
 
-ALLOWED_HANDLES = load_allowed_handles(ALLOWED_HANDLES_FILE)
+EVENT_SCORE_API_URL = os.environ.get("EVENT_SCORE_API_URL", "").rstrip("/")
+BOT_SHARED_SECRET = os.environ.get("BOT_SHARED_SECRET", "").strip()
+BOT_ALLOWLIST_REFRESH_SEC = int(os.environ.get("BOT_ALLOWLIST_REFRESH_SEC", "60"))
+_fallback = load_allowed_handles(ALLOWED_HANDLES_FILE)
+if _fallback:
+    from .common import _ALLOWLIST_CACHE
+    _ALLOWLIST_CACHE["set"] = _fallback
+    logger.info("allowlist 파일 fallback 적용: %d 핸들 (API 첫 응답 전까지)", len(_fallback))
 
 DIFFICULTY_LABELS = {"easy": "⬜ 쉬움", "medium": "🟨 보통", "hard": "🟥 어려움"}
 
@@ -67,7 +76,7 @@ def save_attempt(user_id: int) -> int:
     return data[uid]
 
 
-@allowlist_required(ALLOWED_HANDLES)
+@allowlist_required(get_cached_allowlist)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     # mid-quiz /start 진입 시 경고만, 재시작 안 함
     if context.user_data.get("current_q", 0) > 0:
@@ -352,6 +361,20 @@ async def handle_cancel_confirm(update: Update, context: ContextTypes.DEFAULT_TY
 def main() -> None:
     app = Application.builder().token(BOT_TOKEN).build()
 
+    async def _refresh_allowlist_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+        await fetch_allowlist_from_api(EVENT_SCORE_API_URL, BOT_SHARED_SECRET)
+
+    if EVENT_SCORE_API_URL and BOT_SHARED_SECRET:
+        app.job_queue.run_repeating(
+            _refresh_allowlist_job,
+            interval=BOT_ALLOWLIST_REFRESH_SEC,
+            first=1.0,
+            name="allowlist_refresh",
+        )
+        logger.info("allowlist 자동 새로고침 활성 (간격=%ds)", BOT_ALLOWLIST_REFRESH_SEC)
+    else:
+        logger.warning("allowlist API env 미설정 — 파일 fallback만 사용")
+
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
@@ -368,7 +391,7 @@ def main() -> None:
     )
 
     app.add_handler(conv_handler)
-    logger.info("딥페이크 퀴즈 봇 시작 (allowlist=%d 핸들)", len(ALLOWED_HANDLES))
+    logger.info("딥페이크 퀴즈 봇 시작")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

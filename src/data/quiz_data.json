@@ -5,175 +5,175 @@
   "questions": [
     {
       "id": 1,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_1.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/real/1.jpg",
       "answer": "real",
       "difficulty": "easy",
       "points": 2
     },
     {
       "id": 2,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_1.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/ai/1.png",
       "answer": "ai",
       "difficulty": "easy",
       "points": 2
     },
     {
       "id": 3,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_2.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/real/2.jpg",
       "answer": "real",
       "difficulty": "easy",
       "points": 2
     },
     {
       "id": 4,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_2.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/ai/2.png",
       "answer": "ai",
       "difficulty": "easy",
       "points": 2
     },
     {
       "id": 5,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_3.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/real/3.jpg",
       "answer": "real",
       "difficulty": "easy",
       "points": 2
     },
     {
       "id": 6,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_3.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/ai/3.png",
       "answer": "ai",
       "difficulty": "easy",
       "points": 2
     },
     {
       "id": 7,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_4.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/real/4.jpg",
       "answer": "real",
       "difficulty": "easy",
       "points": 2
     },
     {
       "id": 8,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_4.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/ai/4.png",
       "answer": "ai",
       "difficulty": "easy",
       "points": 2
     },
     {
       "id": 9,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_5.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/real/5.jpg",
       "answer": "real",
       "difficulty": "easy",
       "points": 2
     },
     {
       "id": 10,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_5.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/ai/5.png",
       "answer": "ai",
       "difficulty": "easy",
       "points": 2
     },
     {
       "id": 11,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_6.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/real/6.jpg",
       "answer": "real",
       "difficulty": "medium",
       "points": 4
     },
     {
       "id": 12,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_6.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/ai/6.png",
       "answer": "ai",
       "difficulty": "medium",
       "points": 4
     },
     {
       "id": 13,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_7.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/real/7.jpg",
       "answer": "real",
       "difficulty": "medium",
       "points": 4
     },
     {
       "id": 14,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_7.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/ai/7.png",
       "answer": "ai",
       "difficulty": "medium",
       "points": 4
     },
     {
       "id": 15,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_8.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/real/8.jpg",
       "answer": "real",
       "difficulty": "medium",
       "points": 4
     },
     {
       "id": 16,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_8.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/ai/8.png",
       "answer": "ai",
       "difficulty": "medium",
       "points": 4
     },
     {
       "id": 17,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_9.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/real/9.jpg",
       "answer": "real",
       "difficulty": "medium",
       "points": 4
     },
     {
       "id": 18,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_9.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/ai/9.png",
       "answer": "ai",
       "difficulty": "medium",
       "points": 4
     },
     {
       "id": 19,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_10.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/real/10.jpg",
       "answer": "real",
       "difficulty": "medium",
       "points": 4
     },
     {
       "id": 20,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_10.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/ai/10.png",
       "answer": "ai",
       "difficulty": "medium",
       "points": 4
     },
     {
       "id": 21,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_11.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/ai/11.png",
       "answer": "ai",
       "difficulty": "hard",
       "points": 8
     },
     {
       "id": 22,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_11.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/real/11.jpg",
       "answer": "real",
       "difficulty": "hard",
       "points": 8
     },
     {
       "id": 23,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_12.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/ai/12.png",
       "answer": "ai",
       "difficulty": "hard",
       "points": 8
     },
     {
       "id": 24,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/real_12.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/real/12.jpg",
       "answer": "real",
       "difficulty": "hard",
       "points": 8
     },
     {
       "id": 25,
-      "image_url": "https://storage.googleapis.com/my-stock-bot-488502-billions-quiz/deepfake/ai_13.jpg",
+      "image_url": "https://xzwipetudatsoztirsyy.supabase.co/storage/v1/object/public/deepfake-images/ai/13.png",
       "answer": "ai",
       "difficulty": "hard",
       "points": 8
