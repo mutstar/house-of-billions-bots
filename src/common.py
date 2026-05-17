@@ -135,9 +135,10 @@ AllowedSource = Union[frozenset[str], Callable[[], frozenset[str]]]
 def allowlist_required(
     allowed: AllowedSource,
     block_message: str = (
-        "⚠️ 이 봇은 사전 등록된 참여자만 사용할 수 있습니다.\n\n"
-        "텔레그램 username(@핸들)이 등록된 명단에 있어야 합니다.\n"
-        "등록 문의는 행사 스태프에게 부탁드립니다."
+        "⚠️ Luma 참가자만 이용 가능합니다.\n\n"
+        "Luma에서 이벤트에 사전 등록한 분만 이 봇을 사용할 수 있습니다.\n"
+        "등록한 텔레그램 username(@핸들)과 동일한 계정으로 접근해 주세요.\n"
+        "문의는 행사 스태프에게 부탁드립니다."
     ),
     no_handle_message: str = (
         "⚠️ 텔레그램 username 미설정 상태입니다.\n\n"
