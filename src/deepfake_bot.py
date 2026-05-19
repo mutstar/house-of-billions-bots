@@ -326,7 +326,7 @@ async def _push_and_notify(
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text("이 퀴즈는 취소가 지원되지 않습니다. 끝까지 완료해 주세요! 💪")
+    # /cancel 비활성화 — 무시
     return QUIZ
 
 
