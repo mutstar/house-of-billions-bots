@@ -78,6 +78,16 @@ def save_attempt(user_id: int) -> int:
 
 @allowlist_required(get_cached_allowlist)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # 재시도 완전 차단
+    _attempts = load_attempts()
+    if str(update.effective_user.id) in _attempts:
+        await update.message.reply_text(
+            "⚠️ 딥페이크 퀴즈는 1회만 참여 가능합니다.
+"
+            "이미 참여하셨습니다! 🙅"
+        )
+        return ConversationHandler.END
+
     # mid-quiz /start 진입 시 경고만, 재시작 안 함
     if context.user_data.get("current_q", 0) > 0:
         await update.message.reply_text(
