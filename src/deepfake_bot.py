@@ -82,8 +82,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     _attempts = load_attempts()
     if str(update.effective_user.id) in _attempts:
         await update.message.reply_text(
-            "⚠️ 딥페이크 퀴즈는 1회만 참여 가능합니다.
-"
+            "⚠️ 딥페이크 퀴즈는 1회만 참여 가능합니다.\n"
             "이미 참여하셨습니다! 🙅"
         )
         return ConversationHandler.END
