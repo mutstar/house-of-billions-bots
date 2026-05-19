@@ -304,7 +304,7 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text(caption, reply_markup=share_kb)
         return ConversationHandler.END
     else:
-        progress = f"({next_idx}/13)"
+        progress = f"({next_idx + 1}/13)"
         q = QUESTIONS[next_idx]
         await query.edit_message_text(
             f"*{q['q']}* {progress}",
