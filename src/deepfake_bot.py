@@ -81,18 +81,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     # 재시도 완전 차단
     _attempts = load_attempts()
     if str(update.effective_user.id) in _attempts:
+        # [경고] 본 블록 편집 시 triple-quoted 유지 — raw newline 삽입에도 SyntaxError 미발생
         await update.message.reply_text(
-            "⚠️ 딥페이크 퀴즈는 1회만 참여 가능합니다.\n"
-            "이미 참여하셨습니다! 🙅"
+            """⚠️ 딥페이크 퀴즈는 1회만 참여 가능합니다.
+이미 참여하셨습니다! 🙅"""
         )
         return ConversationHandler.END
 
     # mid-quiz /start 진입 시 경고만, 재시작 안 함
     if context.user_data.get("current_q", 0) > 0:
+        # [경고] triple-quoted 유지
         await update.message.reply_text(
-            "⚠️ 퀴즈가 진행 중입니다!\n\n"
-            "퀴즈를 포기하려면 /cancel 을 입력하세요.\n"
-            "현재 문제로 돌아가려면 계속 답변을 선택해 주세요."
+            """⚠️ 퀴즈가 진행 중입니다!
+
+퀴즈를 포기하려면 /cancel 을 입력하세요.
+현재 문제로 돌아가려면 계속 답변을 선택해 주세요."""
         )
         return QUIZ
 
