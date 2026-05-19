@@ -94,8 +94,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text(
             """⚠️ 퀴즈가 진행 중입니다!
 
-퀴즈를 포기하려면 /cancel 을 입력하세요.
-현재 문제로 돌아가려면 계속 답변을 선택해 주세요."""
+계속 답변을 선택해 주세요. 퀴즈는 1인 1회만 참여 가능합니다."""
         )
         return QUIZ
 
@@ -325,13 +324,6 @@ async def _push_and_notify(
     except Exception as e:
         # [경고] 백그라운드 task — 예외 전파 시 unhandled task 경고 발생. 명시 로그만
         logger.warning("push_and_notify 예외: %s", e)
-
-
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    # /cancel 비활성화 — 무시
-    return QUIZ
-
-
 
 
 def main() -> None:

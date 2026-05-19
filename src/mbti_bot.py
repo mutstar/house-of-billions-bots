@@ -47,11 +47,11 @@ SHARE_IMAGE_URL_BASE = os.environ.get("MBTI_SHARE_IMAGE_URL_BASE", "").strip() o
 
 # X(트위터) 공유 — 텍스트·이미지 URL 추후 결정 (placeholder)
 # 사용 변수: {code} (예: BHT), {name} (예: 🔥 $BILL or Nothing), {desc}
-SHARE_TEXT_TEMPLATE = (
-    "내 트레이딩 MBTI는 {code}!\n"
-    "{name}\n\n"
-    "#BillionsKorea #트레이딩MBTI #{code}"
-)
+# [경고] triple-quoted 유지 — raw newline 편집에도 SyntaxError 미발생
+SHARE_TEXT_TEMPLATE = """내 트레이딩 MBTI는 {code}!
+{name}
+
+#BillionsKorea #트레이딩MBTI #{code}"""
 
 # ─── 13문제 ───────────────────────────────────────────────────
 # score 값: f/c/h/l/n/d 조합 (+ 구분)
@@ -242,10 +242,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["q_idx"] = 0
     context.user_data["scores"] = {"f": 0, "c": 0, "h": 0, "l": 0, "n": 0, "d": 0}
 
+    # [경고] triple-quoted 유지 — MarkdownV2 escape `\\!` 보존
     await update.message.reply_text(
-        "🔥 *빌리언즈 트레이딩 MBTI*\n\n"
-        "13개 질문으로 나의 트레이딩 유형을 알아보세요\\!\n"
-        "가장 나다운 답변을 골라주세요 👇",
+        """🔥 *빌리언즈 트레이딩 MBTI*
+
+13개 질문으로 나의 트레이딩 유형을 알아보세요\\!
+가장 나다운 답변을 골라주세요 👇""",
         parse_mode="MarkdownV2",
     )
     await update.message.reply_text(
@@ -279,15 +281,18 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 결과 계산
         code = calc_result(scores)
         name, desc = RESULTS.get(code, ("❓ Unknown", ""))
-        caption = (
-            f"✅ 테스트 완료!\n\n"
-            f"당신의 트레이딩 유형은...\n\n"
-            f"{name}\n"
-            f"{desc}\n\n"
-            f"#{code} #Billions #트레이딩MBTI\n\n"
-            f"📸 결과 캡처 후 X(트위터)에 #BillionsKorea #트레이딩MBTI 태그와 함께 올리고 아래 폼에 제출하면 $BILL 에어드랍 추첨에 참여할 수 있어요!\n"
-            f"👉 https://forms.gle/8yPz49NwnDtNAtxz5"
-        )
+        # [경고] f""" triple-quoted 유지 — raw newline 편집해도 SyntaxError 미발생
+        caption = f"""✅ 테스트 완료!
+
+당신의 트레이딩 유형은...
+
+{name}
+{desc}
+
+#{code} #Billions #트레이딩MBTI
+
+📸 결과 캡처 후 X(트위터)에 #BillionsKorea #트레이딩MBTI 태그와 함께 올리고 아래 폼에 제출하면 $BILL 에어드랍 추첨에 참여할 수 있어요!
+👉 https://forms.gle/8yPz49NwnDtNAtxz5"""
         image_bytes = await fetch_result_image(code)
         share_kb = make_share_keyboard(code, name, desc)
         await query.edit_message_text("결과를 불러오는 중...")
