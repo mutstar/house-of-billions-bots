@@ -164,17 +164,30 @@ def allowlist_required(
         "설정 > 편집 > Username 에서 @핸들을 설정한 뒤 다시 시도해 주세요.\n"
         "그래도 안 되면 스태프에게 문의해 주세요."
     ),
+    bypass_if: Callable[[Update, ContextTypes.DEFAULT_TYPE], bool] | None = None,
 ) -> Callable[
     [Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[object]]],
     Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[object]],
 ]:
-    """`update.effective_user.username` 기반 사전 등록 핸들 검사 데코레이터."""
+    """`update.effective_user.username` 기반 사전 등록 핸들 검사 데코레이터.
+
+    bypass_if: 참 반환 시 allowlist 게이트를 건너뛴다. 이미 참여한 사용자의 1회
+    차단 메시지가 allowlist 미등록 차단보다 우선해야 하는 경우에 사용.
+    """
 
     def decorator(
         handler: Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[object]],
     ) -> Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[object]]:
         @wraps(handler)
         async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if bypass_if is not None:
+                try:
+                    if bypass_if(update, context):
+                        return await handler(update, context)
+                except Exception as e:
+                    # bypass_if 자체 오류는 차단 우회로 처리하지 않고 정상 게이트 진행
+                    logger.warning("bypass_if 예외 무시: %s", e)
+
             user = update.effective_user
             username = (user.username or "").strip() if user else ""
 

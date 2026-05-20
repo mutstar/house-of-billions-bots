@@ -119,15 +119,21 @@ def save_attempt(user_id: int) -> int:
             fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
-@allowlist_required(get_cached_allowlist)
+def _already_attempted(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> bool:
+    """이미 1회 시도한 사용자는 allowlist 게이트를 우회 — 함수 본문이 1회 차단 메시지 노출."""
+    user = update.effective_user
+    return user is not None and str(user.id) in load_attempts()
+
+
+@allowlist_required(get_cached_allowlist, bypass_if=_already_attempted)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    # 재시도 완전 차단
+    # 재시도 완전 차단 — allowlist에서 빠져도 1회 메시지가 우선
     _attempts = load_attempts()
     if str(update.effective_user.id) in _attempts:
         # [경고] 본 블록 편집 시 triple-quoted 유지 — raw newline 삽입에도 SyntaxError 미발생
         await update.message.reply_text(
-            """⚠️ 딥페이크 퀴즈는 1회만 참여 가능합니다.
-이미 참여하셨습니다! 🙅"""
+            """⚠️ 이미 참석하셨습니다.
+참석은 1회만 가능합니다 🙅"""
         )
         return ConversationHandler.END
 
