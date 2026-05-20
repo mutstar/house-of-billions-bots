@@ -186,7 +186,7 @@ RESULTS = {
     "WHT": ("🏯 $BILL True Believer",   "내러티브 믿고 기다렸다가, 들어가면 절대 안 판다"),
     "WHC": ("📚 $BILL Chart Master",    "차트가 말할 때까지 기다리고, 들어가면 끝까지"),
     "WST": ("📡 $BILL Alpha Hunter",    "커뮤니티 정보 모으고 타이밍 재고, 들리면 바로 인정"),
-    "WSC": ("🎯 $BILL Sniper",          "차트 보고 놀림목 기다렸다가 쏘고, 틀리면 바로 자른다"),
+    "WSC": ("🎯 $BILL Sniper",          "차트 보고 눌림목 기다렸다가 쏘고, 틀리면 바로 자른다"),
 }
 
 ANSWERING = 0
