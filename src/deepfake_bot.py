@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 import httpx
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -148,8 +148,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "⬜ 쉬움: 2점 × 10문제\n"
         "🟨 보통: 4점 × 10문제\n"
         "🟥 어려움: 8점 × 5문제\n"
-        "🏆 최고 점수: 100점\n\n"
-        "먼저 이름을 입력해 주세요 👇",
+        "🏆 최고 점수: 100점",
         parse_mode="Markdown",
     )
     return ASK_NAME
@@ -419,11 +418,18 @@ async def _push_and_notify(
         logger.warning("push_and_notify 예외: %s", e)
 
 
+async def _post_init(application) -> None:
+    await post_init_shared_http(application)
+    # /cancel 같은 잔존 메뉴 항목 제거 — start 1개만 노출
+    await application.bot.set_my_commands([BotCommand("start", "퀴즈 시작")])
+    logger.info("set_my_commands: /start only")
+
+
 def main() -> None:
     app = (
         Application.builder()
         .token(BOT_TOKEN)
-        .post_init(post_init_shared_http)
+        .post_init(_post_init)
         .post_shutdown(post_shutdown_shared_http)
         .build()
     )
