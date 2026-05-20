@@ -1,4 +1,4 @@
-"""공통 유틸: 환경변수 로드, 로깅, 화이트리스트 데코레이터."""
+"""공통 유틸: 환경변수 로드, 로깅, 화이트리스트 데코레이터, 공유 HTTP 클라이언트."""
 from __future__ import annotations
 
 import logging
@@ -41,6 +41,25 @@ _ALLOWLIST_CACHE: dict = {
 _ALLOWLIST_TTL_SEC = 60.0
 
 
+def make_shared_http_client() -> httpx.AsyncClient:
+    """공유 AsyncClient — 100명 동시 push 대비 connection pool 확장."""
+    limits = httpx.Limits(max_connections=200, max_keepalive_connections=50)
+    timeout = httpx.Timeout(5.0, connect=3.0)
+    return httpx.AsyncClient(limits=limits, timeout=timeout)
+
+
+async def post_init_shared_http(application) -> None:
+    application.bot_data["http_client"] = make_shared_http_client()
+    logger.info("shared httpx.AsyncClient 생성 (limits=200/50, timeout=5s)")
+
+
+async def post_shutdown_shared_http(application) -> None:
+    client: httpx.AsyncClient | None = application.bot_data.get("http_client")
+    if client is not None:
+        await client.aclose()
+        logger.info("shared httpx.AsyncClient close 완료")
+
+
 def get_cached_allowlist() -> frozenset[str]:
     """현재 캐시된 allowlist 반환 (synchronous, decorator 내 호출용)."""
     return _ALLOWLIST_CACHE["set"]
@@ -50,6 +69,7 @@ async def fetch_allowlist_from_api(
     api_url: str,
     secret: str,
     *,
+    http: httpx.AsyncClient,
     timeout: float = 5.0,
 ) -> frozenset[str]:
     """event-score /api/bot/allowlist 호출 → 핸들 set 반환, 캐시 갱신.
@@ -61,8 +81,7 @@ async def fetch_allowlist_from_api(
     endpoint = f"{api_url.rstrip('/')}/api/bot/allowlist"
     headers = {"X-Bot-Secret": secret}
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            resp = await client.get(endpoint, headers=headers)
+        resp = await http.get(endpoint, headers=headers, timeout=timeout)
         if resp.status_code // 100 != 2:
             _ALLOWLIST_CACHE["fail_count"] += 1
             logger.warning(
@@ -184,6 +203,7 @@ def allowlist_required(
 
 async def push_score_to_event_score(
     *,
+    http: httpx.AsyncClient,
     telegram_user_id: int,
     telegram_handle: str | None,
     player_name: str,
@@ -220,8 +240,7 @@ async def push_score_to_event_score(
     headers = {"X-Bot-Secret": secret, "Content-Type": "application/json"}
 
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(endpoint, json=payload, headers=headers)
+        resp = await http.post(endpoint, json=payload, headers=headers, timeout=5.0)
         if resp.status_code // 100 != 2:
             logger.warning(
                 "event-score push 실패: status=%s body=%s",

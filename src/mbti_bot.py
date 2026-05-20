@@ -22,6 +22,8 @@ from .common import (
     get_cached_allowlist,
     get_logger,
     load_allowed_handles,
+    post_init_shared_http,
+    post_shutdown_shared_http,
     require_env,
 )
 
@@ -217,12 +219,18 @@ def calc_result(scores: dict) -> str:
     return b_w + h_s + t_c
 
 
-async def fetch_result_image(code: str) -> bytes | None:
+async def fetch_result_image(
+    code: str, http: httpx.AsyncClient | None = None
+) -> bytes | None:
     if IMAGE_URL_BASE:
         url = f"{IMAGE_URL_BASE.rstrip('/')}/{code}.png"
         try:
-            async with httpx.AsyncClient(timeout=15) as client:
-                resp = await client.get(url)
+            if http is not None:
+                resp = await http.get(url, timeout=15.0)
+            else:
+                # [주의] fallback (테스트·CLI 등 application 미가동 경로)
+                async with httpx.AsyncClient(timeout=15) as client:
+                    resp = await client.get(url)
             if resp.status_code == 200:
                 return resp.content
         except Exception as exc:
@@ -293,7 +301,9 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 📸 결과 캡처 후 X(트위터)에 #BillionsKorea #트레이딩MBTI 태그와 함께 올리고 아래 폼에 제출하면 $BILL 에어드랍 추첨에 참여할 수 있어요!
 👉 https://forms.gle/8yPz49NwnDtNAtxz5"""
-        image_bytes = await fetch_result_image(code)
+        image_bytes = await fetch_result_image(
+            code, http=context.application.bot_data.get("http_client")
+        )
         share_kb = make_share_keyboard(code, name, desc)
         await query.edit_message_text("결과를 불러오는 중...")
         if image_bytes is not None:
@@ -315,10 +325,17 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main() -> None:
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .post_init(post_init_shared_http)
+        .post_shutdown(post_shutdown_shared_http)
+        .build()
+    )
 
     async def _refresh_allowlist_job(context: ContextTypes.DEFAULT_TYPE) -> None:
-        await fetch_allowlist_from_api(EVENT_SCORE_API_URL, BOT_SHARED_SECRET)
+        http: httpx.AsyncClient = context.application.bot_data["http_client"]
+        await fetch_allowlist_from_api(EVENT_SCORE_API_URL, BOT_SHARED_SECRET, http=http)
 
     if EVENT_SCORE_API_URL and BOT_SHARED_SECRET:
         app.job_queue.run_repeating(

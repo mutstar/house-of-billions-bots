@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import fcntl
 import io
 import json
 import os
@@ -20,6 +21,7 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+from telegram.helpers import escape_markdown
 
 from .common import (
     allowlist_required,
@@ -27,6 +29,8 @@ from .common import (
     get_cached_allowlist,
     get_logger,
     load_allowed_handles,
+    post_init_shared_http,
+    post_shutdown_shared_http,
     push_score_to_event_score,
     require_env,
 )
@@ -58,22 +62,61 @@ DIFFICULTY_LABELS = {"easy": "⬜ 쉬움", "medium": "🟨 보통", "hard": "�
 
 ASK_NAME, QUIZ = range(2)
 
+# Telegram file_id 캐시 — 100명 × 25문제 = 2500 → 25 fetch로 감소
+# [경고] per-URL lock — 글로벌 lock 시 99 send_photo 직렬화 + 다른 URL도 head-of-line blocking
+_FILE_ID_CACHE: dict[str, str] = {}
+_FILE_ID_LOCKS: dict[str, asyncio.Lock] = {}
+_FILE_ID_LOCKS_GUARD = asyncio.Lock()
+
+
+async def _get_file_id_lock(image_url: str) -> asyncio.Lock:
+    """per-URL asyncio.Lock — guard로 dict mutation 보호 후 회수."""
+    async with _FILE_ID_LOCKS_GUARD:
+        lk = _FILE_ID_LOCKS.get(image_url)
+        if lk is None:
+            lk = asyncio.Lock()
+            _FILE_ID_LOCKS[image_url] = lk
+        return lk
+
+
+def _read_attempts_locked(f) -> dict:
+    """flock 보유 상태에서 호출 — partial JSON 보호."""
+    f.seek(0)
+    raw = f.read()
+    if not raw.strip():
+        return {}
+    return json.loads(raw)
+
 
 def load_attempts() -> dict:
-    if ATTEMPT_FILE.exists():
-        with ATTEMPT_FILE.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+    ATTEMPT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if not ATTEMPT_FILE.exists():
+        return {}
+    with ATTEMPT_FILE.open("r", encoding="utf-8") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_SH)
+        try:
+            return _read_attempts_locked(f)
+        finally:
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
 def save_attempt(user_id: int) -> int:
-    data = load_attempts()
-    uid = str(user_id)
-    data[uid] = data.get(uid, 0) + 1
+    """exclusive lock 보호 read-modify-write — 동시 호출 안전."""
     ATTEMPT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with ATTEMPT_FILE.open("w", encoding="utf-8") as f:
-        json.dump(data, f)
-    return data[uid]
+    ATTEMPT_FILE.touch(exist_ok=True)
+    with ATTEMPT_FILE.open("r+", encoding="utf-8") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        try:
+            data = _read_attempts_locked(f)
+            uid = str(user_id)
+            data[uid] = data.get(uid, 0) + 1
+            f.seek(0)
+            f.truncate()
+            json.dump(data, f)
+            f.flush()
+            return data[uid]
+        finally:
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
 @allowlist_required(get_cached_allowlist)
@@ -134,11 +177,66 @@ async def receive_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     context.user_data["questions"] = easy + medium + hard
 
     await update.message.reply_text(
-        f"안녕하세요, *{name}*님! 🎯\n\n총 25문제가 시작됩니다. 집중하세요!",
+        f"안녕하세요, *{escape_markdown(name, version=1)}*님! 🎯\n\n"
+        "총 25문제가 시작됩니다. 집중하세요!",
         parse_mode="Markdown",
     )
     await send_question(update, context)
     return QUIZ
+
+
+async def _send_question_photo(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
+    image_url: str,
+    caption: str,
+    keyboard: InlineKeyboardMarkup,
+):
+    """file_id 캐시 hit 시 재업로드 0. miss 시 single-flight lock 으로 thundering herd 차단."""
+    cached = _FILE_ID_CACHE.get(image_url)
+    if cached:
+        try:
+            return await context.bot.send_photo(
+                chat_id=chat_id,
+                photo=cached,
+                caption=caption,
+                parse_mode="Markdown",
+                reply_markup=keyboard,
+            )
+        except Exception as e:
+            # [주의] file_id 만료 또는 invalidation — 다시 다운로드 경로로 진입
+            logger.warning("file_id cache hit failed (will refresh): %s", e)
+            _FILE_ID_CACHE.pop(image_url, None)
+
+    # per-URL lock — 첫 fetch만 직렬화. 다른 URL은 병렬, cached send는 lock 밖에서.
+    lk = await _get_file_id_lock(image_url)
+    async with lk:
+        cached2 = _FILE_ID_CACHE.get(image_url)
+        if cached2 is None:
+            http: httpx.AsyncClient = context.application.bot_data["http_client"]
+            resp = await http.get(image_url, timeout=15.0)
+            resp.raise_for_status()
+            photo_bytes = io.BytesIO(resp.content)
+            photo_bytes.name = "image.jpg"
+            sent = await context.bot.send_photo(
+                chat_id=chat_id,
+                photo=photo_bytes,
+                caption=caption,
+                parse_mode="Markdown",
+                reply_markup=keyboard,
+            )
+            if sent.photo:
+                _FILE_ID_CACHE[image_url] = sent.photo[-1].file_id
+            return sent
+
+    # cache 채워짐 → lock 밖에서 send_photo (병렬 가능)
+    return await context.bot.send_photo(
+        chat_id=chat_id,
+        photo=_FILE_ID_CACHE[image_url],
+        caption=caption,
+        parse_mode="Markdown",
+        reply_markup=keyboard,
+    )
 
 
 async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -162,18 +260,7 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     chat_id = update.effective_chat.id
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.get(q["image_url"])
-            resp.raise_for_status()
-            photo_bytes = io.BytesIO(resp.content)
-            photo_bytes.name = "image.jpg"
-        await context.bot.send_photo(
-            chat_id=chat_id,
-            photo=photo_bytes,
-            caption=caption,
-            parse_mode="Markdown",
-            reply_markup=keyboard,
-        )
+        await _send_question_photo(context, chat_id, q["image_url"], caption, keyboard)
     except Exception as e:
         logger.error("이미지 전송 실패 Q%d: %s", idx + 1, e)
         await context.bot.send_message(
@@ -259,10 +346,11 @@ async def finish_quiz(
     )
 
     # 결과 메시지 먼저 전송 — push가 chat critical path를 차단하지 않도록
+    safe_name = escape_markdown(name, version=1)
     await update.effective_message.reply_text(
         f"{last_result}\n\n"
         f"🎉 *퀴즈 완료!*\n\n"
-        f"👤 {name}\n"
+        f"👤 {safe_name}\n"
         f"🎯 점수: *{score}점* / 100점\n"
         f"✅ 정답: {correct} / 25\n"
         f"⏱ 소요 시간: {minutes}분 {seconds}초\n"
@@ -273,10 +361,13 @@ async def finish_quiz(
     )
 
     # 백그라운드 push — 결과 도착 시 follow-up 메시지로 알림
+    # [경고] asyncio.create_task X — Application.create_task로 tracked, graceful shutdown 보장
     chat_id = update.effective_chat.id
-    asyncio.create_task(
+    http: httpx.AsyncClient = context.application.bot_data["http_client"]
+    context.application.create_task(
         _push_and_notify(
             bot=context.bot,
+            http=http,
             chat_id=chat_id,
             telegram_user_id=user_id,
             telegram_handle=username or None,
@@ -294,6 +385,7 @@ async def finish_quiz(
 async def _push_and_notify(
     *,
     bot,
+    http: httpx.AsyncClient,
     chat_id: int,
     telegram_user_id: int,
     telegram_handle: str | None,
@@ -307,6 +399,7 @@ async def _push_and_notify(
     """비동기 push — 결과 채팅 차단 X. 완료 시 follow-up 메시지 1건."""
     try:
         matched = await push_score_to_event_score(
+            http=http,
             telegram_user_id=telegram_user_id,
             telegram_handle=telegram_handle,
             player_name=player_name,
@@ -327,10 +420,17 @@ async def _push_and_notify(
 
 
 def main() -> None:
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .post_init(post_init_shared_http)
+        .post_shutdown(post_shutdown_shared_http)
+        .build()
+    )
 
     async def _refresh_allowlist_job(context: ContextTypes.DEFAULT_TYPE) -> None:
-        await fetch_allowlist_from_api(EVENT_SCORE_API_URL, BOT_SHARED_SECRET)
+        http: httpx.AsyncClient = context.application.bot_data["http_client"]
+        await fetch_allowlist_from_api(EVENT_SCORE_API_URL, BOT_SHARED_SECRET, http=http)
 
     if EVENT_SCORE_API_URL and BOT_SHARED_SECRET:
         app.job_queue.run_repeating(
