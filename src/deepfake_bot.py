@@ -27,6 +27,7 @@ from .common import (
     allowlist_required,
     fetch_allowlist_from_api,
     get_cached_allowlist,
+    get_display_name,
     get_logger,
     load_allowed_handles,
     post_init_shared_http,
@@ -60,7 +61,7 @@ if _fallback:
 
 DIFFICULTY_LABELS = {"easy": "⬜ 쉬움", "medium": "🟨 보통", "hard": "🟥 어려움"}
 
-ASK_NAME, QUIZ = range(2)
+QUIZ = 0
 
 # Telegram file_id 캐시 — 100명 × 25문제 = 2500 → 25 fetch로 감소
 # [경고] per-URL lock — 글로벌 lock 시 99 send_photo 직렬화 + 다른 URL도 head-of-line blocking
@@ -147,25 +148,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         )
         return QUIZ
 
-    await update.message.reply_text(
-        "🤖 *딥페이크 탐지 퀴즈에 오신 것을 환영합니다!*\n\n"
-        "AI가 만든 가짜 얼굴인지, 실제 사람의 사진인지 맞춰보세요.\n\n"
-        "📊 *점수 시스템*\n"
-        "⬜ 쉬움: 2점 × 10문제\n"
-        "🟨 보통: 4점 × 10문제\n"
-        "🟥 어려움: 8점 × 5문제\n"
-        "🏆 최고 점수: 100점",
-        parse_mode="Markdown",
-    )
-    return ASK_NAME
-
-
-async def receive_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    name = update.message.text.strip()
-    if not name or len(name) > 30:
-        await update.message.reply_text("이름은 1~30자로 입력해 주세요.")
-        return ASK_NAME
-
+    user = update.effective_user
+    username = (user.username or "").strip() if user else ""
+    tg_first = (user.first_name or "").strip() if user else ""
+    # DB display_name 우선 — 없으면 텔레그램 first_name → 마지막 fallback
+    name = get_display_name(username, fallback=tg_first or "참가자")
     context.user_data["name"] = name
     context.user_data["current_q"] = 0
     context.user_data["score"] = 0
@@ -182,7 +169,13 @@ async def receive_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     context.user_data["questions"] = easy + medium + hard
 
     await update.message.reply_text(
-        f"안녕하세요, *{escape_markdown(name, version=1)}*님! 🎯\n\n"
+        "🤖 *딥페이크 탐지 퀴즈에 오신 것을 환영합니다!*\n\n"
+        "AI가 만든 가짜 얼굴인지, 실제 사람의 사진인지 맞춰보세요.\n\n"
+        "📊 *점수 시스템*\n"
+        "⬜ 쉬움: 2점 × 10문제\n"
+        "🟨 보통: 4점 × 10문제\n"
+        "🟥 어려움: 8점 × 5문제\n"
+        "🏆 최고 점수: 100점\n\n"
         "총 25문제가 시작됩니다. 집중하세요!",
         parse_mode="Markdown",
     )
@@ -458,7 +451,6 @@ def main() -> None:
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_name)],
             QUIZ: [CallbackQueryHandler(handle_answer, pattern=r"^ans_\d+_(ai|real)$")],
         },
         fallbacks=[ CommandHandler("start", start)],

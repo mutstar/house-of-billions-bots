@@ -35,6 +35,7 @@ logger = get_logger(__name__)
 
 _ALLOWLIST_CACHE: dict = {
     "set": frozenset(),
+    "names": {},  # handle (lowercase) → display_name
     "fetched_at": 0.0,
     "fail_count": 0,
 }
@@ -63,6 +64,13 @@ async def post_shutdown_shared_http(application) -> None:
 def get_cached_allowlist() -> frozenset[str]:
     """현재 캐시된 allowlist 반환 (synchronous, decorator 내 호출용)."""
     return _ALLOWLIST_CACHE["set"]
+
+
+def get_display_name(handle: str | None, fallback: str = "참가자") -> str:
+    """텔레그램 핸들에 대응하는 DB display_name 반환. 미존재 시 fallback."""
+    if not handle:
+        return fallback
+    return _ALLOWLIST_CACHE["names"].get(normalize_handle(handle), fallback)
 
 
 async def fetch_allowlist_from_api(
@@ -100,10 +108,22 @@ async def fetch_allowlist_from_api(
         new_set = frozenset(
             normalize_handle(h) for h in raw if isinstance(h, str) and h.strip()
         )
+        names_raw = data.get("names", {})
+        new_names: dict[str, str] = {}
+        if isinstance(names_raw, dict):
+            for k, v in names_raw.items():
+                if isinstance(k, str) and isinstance(v, str) and v.strip():
+                    new_names[normalize_handle(k)] = v.strip()
         _ALLOWLIST_CACHE["set"] = new_set
+        _ALLOWLIST_CACHE["names"] = new_names
         _ALLOWLIST_CACHE["fetched_at"] = time.time()
         _ALLOWLIST_CACHE["fail_count"] = 0
-        logger.info("allowlist 갱신: %d 핸들 (count=%s)", len(new_set), data.get("count"))
+        logger.info(
+            "allowlist 갱신: %d 핸들 (count=%s, names=%d)",
+            len(new_set),
+            data.get("count"),
+            len(new_names),
+        )
         return new_set
     except Exception as e:
         _ALLOWLIST_CACHE["fail_count"] += 1
